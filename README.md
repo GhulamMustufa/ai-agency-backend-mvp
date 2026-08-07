@@ -55,6 +55,7 @@ This MVP proves the core cognitive capabilities and unit economics of the automa
 9. **`09_ai_meeting_assistant`**: Summarizes meeting transcripts and extracts actionable, assigned next steps.
 10. **`10_ai_internal_knowledge_base`**: Enterprise-grade vector search engine for company standard operating procedures.
 11. **`11_ai_social_media_autoposter`**: Omni-channel content repurposer that rewrites drafts for varying network constraints.
+12. **`12_ai_cold_outreach_composer`**: Autonomous outbound sales pipeline that validates CSV leads and generates hyper-personalized emails.
 
 > Note: Inside each folder, you will find highly tailored, niche-specific variations demonstrating the flexibility of the core architecture.
 
