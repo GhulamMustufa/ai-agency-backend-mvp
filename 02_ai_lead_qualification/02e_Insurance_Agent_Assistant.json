@@ -1,0 +1,46 @@
+{
+  "name": "02e_Insurance_Agent_Assistant",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "insurance-lead" },
+      "name": "Webflow Lead Form",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "Age: {{ $json.age }}, Income: {{ $json.income }}, Pre-existing conditions: {{ $json.medical_history }}.\nCategorize as: High Risk, Medium Risk, or Prime Prospect." },
+      "name": "OpenAI Underwriting Assistant",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "operation": "append", "spreadsheetId": "YOUR_SHEET_ID", "range": "A:E" },
+      "name": "Log to Google Sheets CRM",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "conditions": { "string": [{ "value1": "={{ $json.category }}", "value2": "Prime Prospect" }] } },
+      "name": "Is Prime Prospect?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "resource": "message", "operation": "send", "message": "Hi {{ $json.name }}, I reviewed your profile and I have a great policy fit. When are you free for a 10 min call?", "phoneNumber": "={{ $json.phone }}" },
+      "name": "WhatsApp Auto-Ping",
+      "type": "n8n-nodes-base.whatsapp",
+      "typeVersion": 1,
+      "position": [1160, 200]
+    }
+  ],
+  "connections": {
+    "Webflow Lead Form": { "main": [[{ "node": "OpenAI Underwriting Assistant", "type": "main", "index": 0 }]] },
+    "OpenAI Underwriting Assistant": { "main": [[{ "node": "Log to Google Sheets CRM", "type": "main", "index": 0 }]] },
+    "Log to Google Sheets CRM": { "main": [[{ "node": "Is Prime Prospect?", "type": "main", "index": 0 }]] },
+    "Is Prime Prospect?": { "main": [[{ "node": "WhatsApp Auto-Ping", "type": "main", "index": 0 }]] }
+  }
+}

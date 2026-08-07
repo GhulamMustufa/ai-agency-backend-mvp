@@ -1,0 +1,57 @@
+{
+  "name": "01b_MultiLingual_Spa_Bot",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "spa-webhook" },
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "={{ $json.body.message }}\nDetect the language (Malay, English, Mandarin). Reply in the same language. Extract intent (book_spa or faq)."
+      },
+      "name": "OpenAI Multi-Lingual Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "conditions": { "string": [{ "value1": "={{ $json.extracted_intent }}", "value2": "book_spa" }] } },
+      "name": "Check Intent Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "INSERT INTO appointments (patient_name, phone) VALUES ('{{ $json.name }}', '{{ $json.phone }}');" },
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "channel": "#spa-bookings", "text": "New Spa Booking from {{ $json.name }}!" },
+      "name": "Slack Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1160, 200]
+    },
+    {
+      "parameters": { "resource": "sms", "operation": "send", "message": "={{ $json.ai_reply }}", "to": "={{ $json.phone }}" },
+      "name": "Send Twilio SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1380, 200]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": { "main": [[{ "node": "OpenAI Multi-Lingual Agent", "type": "main", "index": 0 }]] },
+    "OpenAI Multi-Lingual Agent": { "main": [[{ "node": "Check Intent Type", "type": "main", "index": 0 }]] },
+    "Check Intent Type": { "main": [[{ "node": "Save to Supabase", "type": "main", "index": 0 }]] },
+    "Save to Supabase": { "main": [[{ "node": "Slack Alert", "type": "main", "index": 0 }]] },
+    "Slack Alert": { "main": [[{ "node": "Send Twilio SMS", "type": "main", "index": 0 }]] }
+  }
+}

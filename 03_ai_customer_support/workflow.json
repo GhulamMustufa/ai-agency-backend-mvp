@@ -1,0 +1,57 @@
+{
+  "name": "03_AI_Customer_Support_and_Ticket_Escalation",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "support-chat-webhook" },
+      "name": "Inbound Support Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT document_text, 1 - (embedding <=> '{{ $json.body.vector }}') AS similarity FROM knowledge_embeddings WHERE similarity > 0.75 ORDER BY similarity DESC LIMIT 3;"
+      },
+      "name": "Vector DB Knowledge Search",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "=Synthesize customer response using knowledge base:\nUser Query: {{ $json.body.user_message }}\nContext: {{ $json.document_text }}"
+      },
+      "name": "OpenAI Support Synthesizer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "conditions": { "boolean": [{ "value1": "={{ $json.requires_human }}", "value2": true }] }
+      },
+      "name": "Check Human Escalation Needed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#support-escalations",
+        "text": "=⚠️ HUMAN ESCALATION REQUIRED: Ticket #{{ $json.ticket_id }}\nCustomer: {{ $json.user_email }}\nIssue: {{ $json.user_message }}"
+      },
+      "name": "Escalate to Slack Channel",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1140, 200]
+    }
+  ],
+  "connections": {
+    "Inbound Support Webhook": { "main": [[{ "node": "Vector DB Knowledge Search", "type": "main", "index": 0 }]] },
+    "Vector DB Knowledge Search": { "main": [[{ "node": "OpenAI Support Synthesizer", "type": "main", "index": 0 }]] },
+    "OpenAI Support Synthesizer": { "main": [[{ "node": "Check Human Escalation Needed", "type": "main", "index": 0 }]] },
+    "Check Human Escalation Needed": { "main": [[{ "node": "Escalate to Slack Channel", "type": "main", "index": 0 }], []] }
+  }
+}

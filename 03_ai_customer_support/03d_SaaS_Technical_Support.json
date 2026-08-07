@@ -1,0 +1,45 @@
+{
+  "name": "03d_SaaS_Technical_Support",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "saas-support" },
+      "name": "Intercom Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "url": "https://api.github.com/search/issues?q=repo:my-org/my-repo+{{ $json.body.message }}" },
+      "name": "Search GitHub Issues",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o", "prompt": "User Bug: {{ $json.body.message }}.\nGitHub Search Results: {{ $json.github_results }}.\nIf there is a known workaround, explain it to the user. If not, say we are escalating to engineering." },
+      "name": "OpenAI Bug Matcher",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "channel": "#dev-escalations", "text": "New bug reported by {{ $json.body.email }}: {{ $json.body.message }}" },
+      "name": "Slack Escalate (If no workaround)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Re: Your Support Request", "text": "={{ $json.ai_response }}" },
+      "name": "Email Response (Workaround)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [940, 420]
+    }
+  ],
+  "connections": {
+    "Intercom Webhook": { "main": [[{ "node": "Search GitHub Issues", "type": "main", "index": 0 }]] },
+    "Search GitHub Issues": { "main": [[{ "node": "OpenAI Bug Matcher", "type": "main", "index": 0 }]] },
+    "OpenAI Bug Matcher": { "main": [[{ "node": "Slack Escalate (If no workaround)", "type": "main", "index": 0 }, { "node": "Email Response (Workaround)", "type": "main", "index": 0 }]] }
+  }
+}

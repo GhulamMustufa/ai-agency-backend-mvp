@@ -1,0 +1,46 @@
+{
+  "name": "08b_GrabFood_Interceptor",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "pos-order-completed" },
+      "name": "POS Order Completed Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "amount": 45, "unit": "minutes" },
+      "name": "Wait 45 Mins (Food Delivery Time)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "resource": "sms", "operation": "send", "message": "Hi, your food from [Restaurant] should have arrived! If anything is missing or cold, reply to this text IMMEDIATELY and we will refund you. Otherwise, enjoy!", "to": "={{ $json.customer_phone }}" },
+      "name": "Intercept SMS (Twilio)",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "httpMethod": "POST", "path": "sms-reply-webhook" },
+      "name": "Wait for SMS Reply",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "channel": "#kitchen-emergencies", "text": "🔥 GRABFOOD CUSTOMER COMPLAINT: {{ $json.body.message }}. Order #{{ $json.order_id }}" },
+      "name": "Slack Alert to Kitchen",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "POS Order Completed Webhook": { "main": [[{ "node": "Wait 45 Mins (Food Delivery Time)", "type": "main", "index": 0 }]] },
+    "Wait 45 Mins (Food Delivery Time)": { "main": [[{ "node": "Intercept SMS (Twilio)", "type": "main", "index": 0 }]] },
+    "Intercept SMS (Twilio)": { "main": [[{ "node": "Wait for SMS Reply", "type": "main", "index": 0 }]] },
+    "Wait for SMS Reply": { "main": [[{ "node": "Slack Alert to Kitchen", "type": "main", "index": 0 }]] }
+  }
+}

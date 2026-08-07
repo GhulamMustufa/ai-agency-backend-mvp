@@ -1,0 +1,46 @@
+{
+  "name": "04c_Construction_Quotation_Generator",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "construction-quote" },
+      "name": "Field App Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "operation": "getMany", "spreadsheetId": "MATERIAL_PRICES_DB", "range": "A:C" },
+      "name": "Fetch Latest Material Prices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "Client Request: {{ $json.body.job_details }}.\nMaterial Prices: {{ $json.prices_db }}.\nCalculate the total estimated cost including 20% margin. Format as a professional quotation." },
+      "name": "OpenAI Cost Estimator",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "fileFormat": "pdf", "htmlContent": "={{ $json.quotation_html }}" },
+      "name": "Generate Quotation PDF",
+      "type": "n8n-nodes-base.htmlToPdf",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Your Renovation Quotation", "text": "Hi {{ $json.body.client_name }}, attached is the quotation for your requested renovation works.", "attachments": "={{ $binary.data }}" },
+      "name": "Email Client Direct",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "Field App Webhook": { "main": [[{ "node": "Fetch Latest Material Prices", "type": "main", "index": 0 }]] },
+    "Fetch Latest Material Prices": { "main": [[{ "node": "OpenAI Cost Estimator", "type": "main", "index": 0 }]] },
+    "OpenAI Cost Estimator": { "main": [[{ "node": "Generate Quotation PDF", "type": "main", "index": 0 }]] },
+    "Generate Quotation PDF": { "main": [[{ "node": "Email Client Direct", "type": "main", "index": 0 }]] }
+  }
+}

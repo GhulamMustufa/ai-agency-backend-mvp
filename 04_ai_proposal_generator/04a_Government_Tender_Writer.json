@@ -1,0 +1,46 @@
+{
+  "name": "04a_Government_Tender_Writer",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "tender-form-webhook" },
+      "name": "Internal Typeform Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o", "prompt": "Strictly format the following requirements into the standard Malaysian Government Tender (Sebut Harga) format. Use formal Bahasa Melayu.\nProject Specs: {{ $json.body.specs }}" },
+      "name": "OpenAI Formal BM Formatter",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "fileFormat": "pdf", "fileName": "Sebut_Harga_{{ $json.project_name }}.pdf", "htmlContent": "={{ $json.formatted_tender }}" },
+      "name": "Generate PDF Document",
+      "type": "n8n-nodes-base.htmlToPdf",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "operation": "upload", "folderId": "YOUR_GDRIVE_FOLDER_ID", "fileName": "Sebut_Harga_{{ $json.project_name }}.pdf" },
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "channel": "#tenders", "text": "✅ New Sebut Harga generated for {{ $json.project_name }}. Review it here: {{ $json.drive_link }}" },
+      "name": "Slack Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "Internal Typeform Trigger": { "main": [[{ "node": "OpenAI Formal BM Formatter", "type": "main", "index": 0 }]] },
+    "OpenAI Formal BM Formatter": { "main": [[{ "node": "Generate PDF Document", "type": "main", "index": 0 }]] },
+    "Generate PDF Document": { "main": [[{ "node": "Upload to Google Drive", "type": "main", "index": 0 }]] },
+    "Upload to Google Drive": { "main": [[{ "node": "Slack Alert", "type": "main", "index": 0 }]] }
+  }
+}

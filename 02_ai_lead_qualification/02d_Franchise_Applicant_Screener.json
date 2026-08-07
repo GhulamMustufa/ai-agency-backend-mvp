@@ -1,0 +1,45 @@
+{
+  "name": "02d_Franchise_Applicant_Screener",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "franchise-app" },
+      "name": "Typeform Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "Liquid capital: {{ $json.capital }}. Target area: {{ $json.area }}.\nScore this applicant (0-100) based on capital > $100k and prime location." },
+      "name": "OpenAI Franchise Scorer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "conditions": { "number": [{ "value1": "={{ $json.score }}", "operation": "largerEqual", "value2": 80 }] } },
+      "name": "High Score?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "channel": "#franchise-sales", "text": "New VIP Franchise App! {{ $json.name }} | Capital: {{ $json.capital }}" },
+      "name": "Slack Alert to Director",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "INSERT INTO applicants (name, status) VALUES ('{{ $json.name }}', 'rejected');" },
+      "name": "Log Rejection",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [940, 420]
+    }
+  ],
+  "connections": {
+    "Typeform Webhook": { "main": [[{ "node": "OpenAI Franchise Scorer", "type": "main", "index": 0 }]] },
+    "OpenAI Franchise Scorer": { "main": [[{ "node": "High Score?", "type": "main", "index": 0 }]] },
+    "High Score?": { "main": [[{ "node": "Slack Alert to Director", "type": "main", "index": 0 }], [{ "node": "Log Rejection", "type": "main", "index": 0 }]] }
+  }
+}

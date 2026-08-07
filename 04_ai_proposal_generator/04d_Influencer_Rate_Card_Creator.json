@@ -1,0 +1,46 @@
+{
+  "name": "04d_Influencer_Rate_Card_Creator",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "rate-card-request" },
+      "name": "Talent Manager Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "url": "https://api.apify.com/v2/acts/instagram-scraper/runs?token=YOUR_APIFY_TOKEN" },
+      "name": "Fetch Live Instagram Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o", "prompt": "Brand: {{ $json.body.brand_name }}. Influencer Stats: {{ $json.instagram_stats }}.\nGenerate a customized proposal offering 1 Reel and 3 Stories. Adjust the price based on their current engagement rate." },
+      "name": "OpenAI Deal Structurer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "fileFormat": "pdf", "htmlContent": "={{ $json.rate_card_html }}" },
+      "name": "Generate PDF Rate Card",
+      "type": "n8n-nodes-base.htmlToPdf",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "channel": "#brand-deals", "text": "Custom rate card generated for {{ $json.body.brand_name }}. Ready to send!" },
+      "name": "Slack Alert with PDF",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "Talent Manager Webhook": { "main": [[{ "node": "Fetch Live Instagram Stats", "type": "main", "index": 0 }]] },
+    "Fetch Live Instagram Stats": { "main": [[{ "node": "OpenAI Deal Structurer", "type": "main", "index": 0 }]] },
+    "OpenAI Deal Structurer": { "main": [[{ "node": "Generate PDF Rate Card", "type": "main", "index": 0 }]] },
+    "Generate PDF Rate Card": { "main": [[{ "node": "Slack Alert with PDF", "type": "main", "index": 0 }]] }
+  }
+}

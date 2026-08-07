@@ -1,0 +1,49 @@
+{
+  "name": "01e_After_Hours_Auto_Dealership",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "lead-form-webhook" },
+      "name": "Website Lead Form",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "={{ $json.body.message }}\nExtract vehicle of interest and budget."
+      },
+      "name": "OpenAI Lead Qualifier",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "amount": 1, "unit": "hours" },
+      "name": "Wait Node (1 Hour Delay)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "resource": "sms", "operation": "send", "message": "Hi! We saw you're interested in a {{ $json.vehicle }}. We're currently closed, but what time can we call you tomorrow morning?", "to": "={{ $json.phone }}" },
+      "name": "Twilio SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "INSERT INTO leads (name, phone, vehicle, budget) VALUES ('{{ $json.name }}', '{{ $json.phone }}', '{{ $json.vehicle }}', '{{ $json.budget }}');" },
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "Website Lead Form": { "main": [[{ "node": "OpenAI Lead Qualifier", "type": "main", "index": 0 }]] },
+    "OpenAI Lead Qualifier": { "main": [[{ "node": "Wait Node", "type": "main", "index": 0 }]] },
+    "Wait Node": { "main": [[{ "node": "Twilio SMS", "type": "main", "index": 0 }]] },
+    "Twilio SMS": { "main": [[{ "node": "Save to Supabase", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "name": "08e_Ecommerce_Unboxing_Reviewer",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "shopify-order-delivered" },
+      "name": "Shopify 'Delivered' Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "amount": 3, "unit": "days" },
+      "name": "Wait 3 Days (Time to unbox)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Get 10% off your next order!", "text": "Hi {{ $json.customer_name }}, hope you are loving your new {{ $json.product_name }}. Reply to this email with a photo of you using it, and we'll instantly send you a 10% discount code!" },
+      "name": "Send Email Request",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "httpMethod": "POST", "path": "email-reply-webhook" },
+      "name": "Wait for Email Reply",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "conditions": { "boolean": [{ "value1": "={{ $json.has_attachment }}", "value2": true }] } },
+      "name": "Has Photo Attachment?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Here is your 10% Off Code!", "text": "Thanks for the photo! Use code THANKS10 at checkout." },
+      "name": "Send Discount Code",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1380, 200]
+    }
+  ],
+  "connections": {
+    "Shopify 'Delivered' Webhook": { "main": [[{ "node": "Wait 3 Days (Time to unbox)", "type": "main", "index": 0 }]] },
+    "Wait 3 Days (Time to unbox)": { "main": [[{ "node": "Send Email Request", "type": "main", "index": 0 }]] },
+    "Send Email Request": { "main": [[{ "node": "Wait for Email Reply", "type": "main", "index": 0 }]] },
+    "Wait for Email Reply": { "main": [[{ "node": "Has Photo Attachment?", "type": "main", "index": 0 }]] },
+    "Has Photo Attachment?": { "main": [[{ "node": "Send Discount Code", "type": "main", "index": 0 }]] }
+  }
+}

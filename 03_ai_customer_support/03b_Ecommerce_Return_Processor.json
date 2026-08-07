@@ -1,0 +1,45 @@
+{
+  "name": "03b_Ecommerce_Return_Processor",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "shopify-return-request" },
+      "name": "Return Portal Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "Customer Reason: {{ $json.body.reason }}. Item Condition: {{ $json.body.condition }}.\nCheck if this matches the return policy: Only unopened items within 30 days are eligible." },
+      "name": "OpenAI Policy Checker",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "conditions": { "boolean": [{ "value1": "={{ $json.is_eligible }}", "value2": true }] } },
+      "name": "Is Eligible?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Your Return Label", "text": "Hi {{ $json.body.name }}, your return is approved. Attached is your shipping label." },
+      "name": "Approve & Send Label",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Return Request Update", "text": "Hi {{ $json.body.name }}, unfortunately we cannot accept this return because: {{ $json.rejection_reason }}." },
+      "name": "Reject & Explain",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [940, 420]
+    }
+  ],
+  "connections": {
+    "Return Portal Webhook": { "main": [[{ "node": "OpenAI Policy Checker", "type": "main", "index": 0 }]] },
+    "OpenAI Policy Checker": { "main": [[{ "node": "Is Eligible?", "type": "main", "index": 0 }]] },
+    "Is Eligible?": { "main": [[{ "node": "Approve & Send Label", "type": "main", "index": 0 }], [{ "node": "Reject & Explain", "type": "main", "index": 0 }]] }
+  }
+}

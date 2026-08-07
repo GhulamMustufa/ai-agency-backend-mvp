@@ -1,0 +1,46 @@
+{
+  "name": "08c_Employee_Satisfaction_Tracker",
+  "nodes": [
+    {
+      "parameters": { "triggerOn": "message", "channel": "#anonymous-feedback" },
+      "name": "Slack Channel Trigger",
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "Employee feedback: {{ $json.text }}\nAnalyze sentiment (Positive/Negative/Neutral) and categorize issue (Burnout/Management/Pay/Operations)." },
+      "name": "OpenAI Sentiment & Categorization",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "INSERT INTO employee_feedback (sentiment, category, timestamp) VALUES ('{{ $json.sentiment }}', '{{ $json.category }}', NOW());" },
+      "name": "Log Anonymously to Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "conditions": { "string": [{ "value1": "={{ $json.category }}", "value2": "Burnout" }] } },
+      "name": "Is Burnout Risk?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "⚠️ High Burnout Risk Detected in Anonymous Feedback", "text": "HR Team, an employee submitted feedback flagged for Burnout. Please review the dashboard." },
+      "name": "Email HR Director",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1160, 200]
+    }
+  ],
+  "connections": {
+    "Slack Channel Trigger": { "main": [[{ "node": "OpenAI Sentiment & Categorization", "type": "main", "index": 0 }]] },
+    "OpenAI Sentiment & Categorization": { "main": [[{ "node": "Log Anonymously to Postgres", "type": "main", "index": 0 }]] },
+    "Log Anonymously to Postgres": { "main": [[{ "node": "Is Burnout Risk?", "type": "main", "index": 0 }]] },
+    "Is Burnout Risk?": { "main": [[{ "node": "Email HR Director", "type": "main", "index": 0 }]] }
+  }
+}

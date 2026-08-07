@@ -1,0 +1,38 @@
+{
+  "name": "04b_Creative_Agency_Pitch_Deck",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "pitch-deck-request" },
+      "name": "Slack Command /pitch",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o", "prompt": "Client: {{ $json.body.client_name }}. Campaign Goal: {{ $json.body.goal }}.\nGenerate 3 highly creative campaign concepts and a slide-by-slide outline for a Pitch Deck." },
+      "name": "OpenAI Creative Brainstormer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "operation": "create", "title": "Pitch Deck Draft: {{ $json.body.client_name }}", "content": "={{ $json.pitch_outline }}" },
+      "name": "Create Google Doc",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "channel": "={{ $json.body.channel_id }}", "text": "🎨 Draft Pitch Deck Outline is ready for {{ $json.body.client_name }}! You can edit it here: {{ $json.doc_url }}" },
+      "name": "Slack Reply to User",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [940, 300]
+    }
+  ],
+  "connections": {
+    "Slack Command /pitch": { "main": [[{ "node": "OpenAI Creative Brainstormer", "type": "main", "index": 0 }]] },
+    "OpenAI Creative Brainstormer": { "main": [[{ "node": "Create Google Doc", "type": "main", "index": 0 }]] },
+    "Create Google Doc": { "main": [[{ "node": "Slack Reply to User", "type": "main", "index": 0 }]] }
+  }
+}

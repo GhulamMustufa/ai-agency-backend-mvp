@@ -1,0 +1,48 @@
+{
+  "name": "01c_Emergency_Plumber_Dispatch",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "plumber-webhook" },
+      "name": "Inbound Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "={{ $json.body.message }}\nExtract intent and urgency level (high/low). 'pipe burst' or 'flooding' is high urgency."
+      },
+      "name": "OpenAI Urgency Classifier",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "conditions": { "string": [{ "value1": "={{ $json.urgency }}", "value2": "high" }] } },
+      "name": "Check Urgency",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "resource": "call", "operation": "make", "to": "+1234567890", "twiml": "<Response><Say>Emergency plumbing request from {{ $json.name }} at {{ $json.phone }}.</Say></Response>" },
+      "name": "Twilio Auto-Call Dispatch",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "INSERT INTO requests (name, phone) VALUES ('{{ $json.name }}', '{{ $json.phone }}');" },
+      "name": "Supabase Standard Save",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [940, 420]
+    }
+  ],
+  "connections": {
+    "Inbound Webhook": { "main": [[{ "node": "OpenAI Urgency Classifier", "type": "main", "index": 0 }]] },
+    "OpenAI Urgency Classifier": { "main": [[{ "node": "Check Urgency", "type": "main", "index": 0 }]] },
+    "Check Urgency": { "main": [[{ "node": "Twilio Auto-Call Dispatch", "type": "main", "index": 0 }], [{ "node": "Supabase Standard Save", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "07_AI_Sales_CRM_and_Outreach_Assistant",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "crm-lead-trigger" },
+      "name": "CRM Lead Trigger Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "url": "={{ $json.body.website }}" },
+      "name": "Scrape Prospect Business",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "=Generate personalized outreach copy:\nCompany: {{ $json.body.company_name }}\nScraped Website Text: {{ $json.data }}\n\nReturn cold email subject line, body text, and 300-char LinkedIn note."
+      },
+      "name": "OpenAI Outreach Generator",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO crm_outreach_logs (company_name, email, subject, body_text, linkedin_message) VALUES ('{{ $json.company_name }}', '{{ $json.email }}', '{{ $json.subject }}', '{{ $json.body_text }}', '{{ $json.linkedin_message }}') RETURNING *;"
+      },
+      "name": "Save Outreach to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [920, 300]
+    }
+  ],
+  "connections": {
+    "CRM Lead Trigger Webhook": { "main": [[{ "node": "Scrape Prospect Business", "type": "main", "index": 0 }]] },
+    "Scrape Prospect Business": { "main": [[{ "node": "OpenAI Outreach Generator", "type": "main", "index": 0 }]] },
+    "OpenAI Outreach Generator": { "main": [[{ "node": "Save Outreach to Supabase", "type": "main", "index": 0 }]] }
+  }
+}

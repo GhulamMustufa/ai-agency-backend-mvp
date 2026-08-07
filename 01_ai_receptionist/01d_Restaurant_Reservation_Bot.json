@@ -1,0 +1,41 @@
+{
+  "name": "01d_Restaurant_Reservation_Bot",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "messenger-webhook" },
+      "name": "FB Messenger Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "={{ $json.body.message }}\nExtract reservation details: name, pax, date, time."
+      },
+      "name": "OpenAI Reservation Extractor",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "operation": "append", "spreadsheetId": "YOUR_SHEET_ID", "range": "A:D" },
+      "name": "Google Sheets Append",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "httpMethod": "POST", "url": "https://graph.facebook.com/v11.0/me/messages", "jsonParameters": true },
+      "name": "FB Messenger Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [940, 300]
+    }
+  ],
+  "connections": {
+    "FB Messenger Webhook": { "main": [[{ "node": "OpenAI Reservation Extractor", "type": "main", "index": 0 }]] },
+    "OpenAI Reservation Extractor": { "main": [[{ "node": "Google Sheets Append", "type": "main", "index": 0 }]] },
+    "Google Sheets Append": { "main": [[{ "node": "FB Messenger Reply", "type": "main", "index": 0 }]] }
+  }
+}

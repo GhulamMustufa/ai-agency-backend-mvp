@@ -1,0 +1,45 @@
+{
+  "name": "02c_Event_Webinar_Qualifier",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "event-registration" },
+      "name": "Registration Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "={{ $json.job_title }} at {{ $json.company }}\nDetermine if this person is a decision-maker (Director, VP, C-Level, Head of). Return boolean." },
+      "name": "OpenAI Title Analyzer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "conditions": { "boolean": [{ "value1": "={{ $json.is_decision_maker }}", "value2": true }] } },
+      "name": "Is Decision Maker?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Exclusive VIP Dinner Invitation", "text": "Hi {{ $json.name }}, since you are attending, we'd like to invite you to an exclusive VIP dinner..." },
+      "name": "Email VIP Invite",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Your Registration is Confirmed", "text": "Hi {{ $json.name }}, see you at the event!" },
+      "name": "Email Standard Ticket",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [940, 420]
+    }
+  ],
+  "connections": {
+    "Registration Webhook": { "main": [[{ "node": "OpenAI Title Analyzer", "type": "main", "index": 0 }]] },
+    "OpenAI Title Analyzer": { "main": [[{ "node": "Is Decision Maker?", "type": "main", "index": 0 }]] },
+    "Is Decision Maker?": { "main": [[{ "node": "Email VIP Invite", "type": "main", "index": 0 }], [{ "node": "Email Standard Ticket", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "10_AI_Internal_Knowledge_Base_RAG_Engine",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "internal-kb-search" },
+      "name": "Employee Chat Query Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/embeddings",
+        "options": {}
+      },
+      "name": "Generate Vector Embedding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT chunk_content, doc_title, 1 - (embedding <=> '{{ $json.data.embedding }}') AS similarity FROM enterprise_kb_chunks WHERE similarity > 0.78 ORDER BY similarity DESC LIMIT 4;"
+      },
+      "name": "Search Supabase pgvector KB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "prompt": "=Synthesize precise internal employee answer using cited context:\nUser Question: {{ $json.body.user_message }}\nRetrieved Docs Context: {{ $json.chunk_content }}\n\nStrict Rule: If answer is not in context, state you don't know and cite the relevant document title if available."
+      },
+      "name": "OpenAI Enterprise Synthesizer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [920, 300]
+    }
+  ],
+  "connections": {
+    "Employee Chat Query Webhook": { "main": [[{ "node": "Generate Vector Embedding", "type": "main", "index": 0 }]] },
+    "Generate Vector Embedding": { "main": [[{ "node": "Search Supabase pgvector KB", "type": "main", "index": 0 }]] },
+    "Search Supabase pgvector KB": { "main": [[{ "node": "OpenAI Enterprise Synthesizer", "type": "main", "index": 0 }]] }
+  }
+}

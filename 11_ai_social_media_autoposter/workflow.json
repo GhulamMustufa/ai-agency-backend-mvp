@@ -1,0 +1,52 @@
+{
+  "name": "11_AI_Social_Media_Autoposter",
+  "nodes": [
+    {
+      "parameters": { "pollTimes": { "item": [{ "mode": "everyMinute" }] }, "event": "rowUpdated", "sheetId": "YOUR_SHEET_ID" },
+      "name": "Google Sheets Trigger (On Approved)",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "conditions": { "boolean": [{ "value1": "={{ $json.is_approved }}", "value2": true }] } },
+      "name": "Is Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "Original content: {{ $json.content }}\nRewrite this into 3 formats:\n1. A professional LinkedIn post.\n2. A short Twitter tweet (<280 chars).\n3. A Facebook post.\nReturn as JSON." },
+      "name": "OpenAI Platform Formatter",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [700, 200]
+    },
+    {
+      "parameters": { "text": "={{ $json.linkedin_post }}" },
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedin",
+      "typeVersion": 1,
+      "position": [940, 0]
+    },
+    {
+      "parameters": { "text": "={{ $json.twitter_post }}" },
+      "name": "Post to Twitter (X)",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "text": "={{ $json.facebook_post }}", "pageId": "YOUR_PAGE_ID" },
+      "name": "Post to Facebook Page",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [940, 400]
+    }
+  ],
+  "connections": {
+    "Google Sheets Trigger (On Approved)": { "main": [[{ "node": "Is Approved?", "type": "main", "index": 0 }]] },
+    "Is Approved?": { "main": [[{ "node": "OpenAI Platform Formatter", "type": "main", "index": 0 }]] },
+    "OpenAI Platform Formatter": { "main": [[{ "node": "Post to LinkedIn", "type": "main", "index": 0 }, { "node": "Post to Twitter (X)", "type": "main", "index": 0 }, { "node": "Post to Facebook Page", "type": "main", "index": 0 }]] }
+  }
+}

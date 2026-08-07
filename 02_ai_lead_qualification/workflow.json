@@ -1,0 +1,63 @@
+{
+  "name": "02_AI_Lead_Qualification_and_Research_System",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-qualification-webhook",
+        "options": {}
+      },
+      "name": "Inbound Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.body.website_url }}",
+        "options": {}
+      },
+      "name": "Scrape Lead Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": { "temperature": 0.2 },
+        "prompt": "=Analyze company webpage text and lead profile:\nCompany Name: {{ $json.body.company_name }}\nLead Email: {{ $json.body.email }}\nWebsite Content: {{ $json.data }}\n\nExtract employee count estimate, industry vertical, primary product, and calculate lead qualification score (0-100)."
+      },
+      "name": "OpenAI Lead Scorer & Summarizer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO lead_scores (lead_email, company_name, lead_score, industry, summary, qualification_tier) VALUES ('{{ $json.email }}', '{{ $json.company_name }}', {{ $json.lead_score }}, '{{ $json.industry }}', '{{ $json.summary }}', '{{ $json.qualification_tier }}') RETURNING *;"
+      },
+      "name": "Save Lead Score to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#hot-leads-alerts",
+        "text": "=🔥 HOT LEAD ALERT: {{ $json.company_name }} (Score: {{ $json.lead_score }}/100)\nIndustry: {{ $json.industry }}\nSummary: {{ $json.summary }}"
+      },
+      "name": "Slack High-Priority Lead Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1140, 300]
+    }
+  ],
+  "connections": {
+    "Inbound Lead Webhook": { "main": [[{ "node": "Scrape Lead Website", "type": "main", "index": 0 }]] },
+    "Scrape Lead Website": { "main": [[{ "node": "OpenAI Lead Scorer & Summarizer", "type": "main", "index": 0 }]] },
+    "OpenAI Lead Scorer & Summarizer": { "main": [[{ "node": "Save Lead Score to Supabase", "type": "main", "index": 0 }]] },
+    "Save Lead Score to Supabase": { "main": [[{ "node": "Slack High-Priority Lead Alert", "type": "main", "index": 0 }]] }
+  }
+}

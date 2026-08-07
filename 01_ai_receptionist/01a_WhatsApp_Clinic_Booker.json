@@ -1,0 +1,57 @@
+{
+  "name": "01a_WhatsApp_Clinic_Booker",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "whatsapp-webhook" },
+      "name": "Inbound WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "={{ $json.body.message }}\nExtract intent (book_appointment or faq)."
+      },
+      "name": "OpenAI Intent Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "conditions": { "string": [{ "value1": "={{ $json.extracted_intent }}", "value2": "book_appointment" }] } },
+      "name": "Check Intent Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "INSERT INTO appointments (patient_name, phone) VALUES ('{{ $json.name }}', '{{ $json.phone }}');" },
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "operation": "create", "calendar": "primary" },
+      "name": "Google Calendar Sync",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [1160, 200]
+    },
+    {
+      "parameters": { "operation": "send", "message": "Your appointment is confirmed!", "phoneNumber": "={{ $json.phone }}" },
+      "name": "Send WhatsApp Confirmation",
+      "type": "n8n-nodes-base.whatsapp",
+      "typeVersion": 1,
+      "position": [1380, 200]
+    }
+  ],
+  "connections": {
+    "Inbound WhatsApp Webhook": { "main": [[{ "node": "OpenAI Intent Agent", "type": "main", "index": 0 }]] },
+    "OpenAI Intent Agent": { "main": [[{ "node": "Check Intent Type", "type": "main", "index": 0 }]] },
+    "Check Intent Type": { "main": [[{ "node": "Save to Supabase", "type": "main", "index": 0 }]] },
+    "Save to Supabase": { "main": [[{ "node": "Google Calendar Sync", "type": "main", "index": 0 }]] },
+    "Google Calendar Sync": { "main": [[{ "node": "Send WhatsApp Confirmation", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "03a_IT_Helpdesk_Troubleshooter",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "it-ticket" },
+      "name": "Zendesk Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "text-embedding-ada-002", "text": "={{ $json.body.description }}" },
+      "name": "OpenAI Embed User Issue",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "operation": "executeQuery", "query": "SELECT chunk_content FROM enterprise_kb_chunks ORDER BY embedding <-> '{{ $json.embedding }}' LIMIT 3;" },
+      "name": "Supabase Vector Search (IT Docs)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o", "prompt": "User Issue: {{ $json.body.description }}\nIT Knowledge Base: {{ $json.kb_results }}\nWrite a step-by-step troubleshooting guide for the user." },
+      "name": "OpenAI Support Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Re: IT Ticket #{{ $json.body.ticket_id }}", "text": "={{ $json.troubleshooting_guide }}" },
+      "name": "Email Auto-Reply",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    }
+  ],
+  "connections": {
+    "Zendesk Webhook": { "main": [[{ "node": "OpenAI Embed User Issue", "type": "main", "index": 0 }]] },
+    "OpenAI Embed User Issue": { "main": [[{ "node": "Supabase Vector Search (IT Docs)", "type": "main", "index": 0 }]] },
+    "Supabase Vector Search (IT Docs)": { "main": [[{ "node": "OpenAI Support Agent", "type": "main", "index": 0 }]] },
+    "OpenAI Support Agent": { "main": [[{ "node": "Email Auto-Reply", "type": "main", "index": 0 }]] }
+  }
+}

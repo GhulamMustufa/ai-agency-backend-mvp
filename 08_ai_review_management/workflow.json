@@ -1,0 +1,58 @@
+{
+  "name": "08_AI_Review_and_Reputation_Manager",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "google-review-webhook" },
+      "name": "Google Review Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "=Analyze customer Google review:\nReview Text: {{ $json.body.review_text }}\nStar Rating: {{ $json.body.rating }}\n\nClassify sentiment (positive | neutral | negative), detect issue category, and draft professional response."
+      },
+      "name": "OpenAI Review Sentiment Analyzer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": { "string": [{ "value1": "={{ $json.sentiment }}", "value2": "negative" }] }
+      },
+      "name": "Check Negative Review",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "message": "=⚠️ NEGATIVE REVIEW ALERT: {{ $json.rating }}★ from {{ $json.reviewer_name }}.\nReview: \"{{ $json.review_text }}\"\nDraft Reply: {{ $json.draft_reply }}",
+        "to": "={{ $json.manager_phone }}"
+      },
+      "name": "Alert Manager via Twilio SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [920, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO review_logs (reviewer_name, rating, review_text, sentiment, draft_reply) VALUES ('{{ $json.reviewer_name }}', {{ $json.rating }}, '{{ $json.review_text }}', '{{ $json.sentiment }}', '{{ $json.draft_reply }}') RETURNING *;"
+      },
+      "name": "Save Review to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [920, 400]
+    }
+  ],
+  "connections": {
+    "Google Review Webhook": { "main": [[{ "node": "OpenAI Review Sentiment Analyzer", "type": "main", "index": 0 }]] },
+    "OpenAI Review Sentiment Analyzer": { "main": [[{ "node": "Check Negative Review", "type": "main", "index": 0 }]] },
+    "Check Negative Review": { "main": [[{ "node": "Alert Manager via Twilio SMS", "type": "main", "index": 0 }], [{ "node": "Save Review to Supabase", "type": "main", "index": 0 }]] }
+  }
+}

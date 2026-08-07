@@ -1,0 +1,45 @@
+{
+  "name": "08d_TripAdvisor_Hotel_Booster",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "hotel-checkout" },
+      "name": "Hotel PMS Checkout Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "Determine if this customer is likely a foreign tourist based on their country code: {{ $json.country_code }}. Return true/false." },
+      "name": "OpenAI Check Country",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "conditions": { "boolean": [{ "value1": "={{ $json.is_foreigner }}", "value2": true }] } },
+      "name": "Is Foreign Tourist?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "operation": "send", "subject": "Thank you for visiting Malaysia!", "text": "Hi {{ $json.name }}, we hope you enjoyed your stay. If you loved it, please leave us a review on TripAdvisor to help other travelers! [TripAdvisor Link]" },
+      "name": "Email TripAdvisor Link",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "resource": "message", "operation": "send", "message": "Hi {{ $json.name }}, thanks for staying with us. Please leave us a review on Google Maps! [Google Link]", "phoneNumber": "={{ $json.phone }}" },
+      "name": "WhatsApp Google Link (Locals)",
+      "type": "n8n-nodes-base.whatsapp",
+      "typeVersion": 1,
+      "position": [940, 420]
+    }
+  ],
+  "connections": {
+    "Hotel PMS Checkout Webhook": { "main": [[{ "node": "OpenAI Check Country", "type": "main", "index": 0 }]] },
+    "OpenAI Check Country": { "main": [[{ "node": "Is Foreign Tourist?", "type": "main", "index": 0 }]] },
+    "Is Foreign Tourist?": { "main": [[{ "node": "Email TripAdvisor Link", "type": "main", "index": 0 }], [{ "node": "WhatsApp Google Link (Locals)", "type": "main", "index": 0 }]] }
+  }
+}

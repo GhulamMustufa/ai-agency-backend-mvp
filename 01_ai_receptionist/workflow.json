@@ -1,0 +1,201 @@
+{
+  "name": "01_AI_Receptionist_and_Booking_Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-receptionist-webhook",
+        "options": {}
+      },
+      "name": "Inbound Customer Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {
+          "temperature": 0.2
+        },
+        "prompt": "={{ $json.body.user_message }}"
+      },
+      "name": "OpenAI Intent & Extraction Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.extracted_intent }}",
+              "value2": "book_appointment"
+            }
+          ]
+        }
+      },
+      "name": "Check Intent Type",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO appointments (client_id, patient_name, phone, appointment_time, service_requested, status) VALUES ('{{ $json.client_id }}', '{{ $json.patient_name }}', '{{ $json.phone }}', '{{ $json.appointment_time }}', '{{ $json.service_requested }}', 'confirmed') RETURNING *;"
+      },
+      "name": "Save Appointment to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        940,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendar": "primary",
+        "start": "={{ $json.appointment_time }}",
+        "end": "={{ $json.appointment_end_time }}",
+        "summary": "=Appointment: {{ $json.patient_name }} - {{ $json.service_requested }}"
+      },
+      "name": "Google Calendar Sync",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "message": "=Hi {{ $json.patient_name }}, your appointment for {{ $json.service_requested }} on {{ $json.appointment_time }} is confirmed! Reply HELP if you need to reschedule.",
+        "to": "={{ $json.phone }}"
+      },
+      "name": "Send Twilio Confirmation SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1380,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT answer FROM clinic_faqs WHERE client_id = '{{ $json.client_id }}' AND category = '{{ $json.faq_category }}' LIMIT 1;"
+      },
+      "name": "Fetch FAQ Answer from Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        940,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "message": "={{ $json.answer }}",
+        "to": "={{ $json.phone }}"
+      },
+      "name": "Send Twilio FAQ Response",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        1160,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Inbound Customer Webhook": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Intent & Extraction Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Intent & Extraction Agent": {
+      "main": [
+        [
+          {
+            "node": "Check Intent Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Intent Type": {
+      "main": [
+        [
+          {
+            "node": "Save Appointment to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch FAQ Answer from Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Appointment to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Google Calendar Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar Sync": {
+      "main": [
+        [
+          {
+            "node": "Send Twilio Confirmation SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch FAQ Answer from Supabase": {
+      "main": [
+        [
+          {
+            "node": "Send Twilio FAQ Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

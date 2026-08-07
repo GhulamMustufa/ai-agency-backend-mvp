@@ -1,0 +1,45 @@
+{
+  "name": "03e_Clinic_Patient_Portal",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "patient-question" },
+      "name": "Patient WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "Patient Message: {{ $json.body.message }}.\nClassify this as: 'Medical Advice' or 'Admin/Logistics'. (Note: We cannot legally give medical advice over WhatsApp)." },
+      "name": "OpenAI Legal Firewall",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "conditions": { "string": [{ "value1": "={{ $json.classification }}", "value2": "Medical Advice" }] } },
+      "name": "Is Medical Advice?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "resource": "message", "operation": "send", "message": "Hi, for your safety we cannot provide medical advice over WhatsApp. Please call the clinic directly at [Number] to speak with a nurse.", "phoneNumber": "={{ $json.phone }}" },
+      "name": "WhatsApp Disclaimer Reply",
+      "type": "n8n-nodes-base.whatsapp",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "model": "text-embedding-ada-002", "text": "={{ $json.body.message }}" },
+      "name": "Embed Admin Query",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [940, 420]
+    }
+  ],
+  "connections": {
+    "Patient WhatsApp Webhook": { "main": [[{ "node": "OpenAI Legal Firewall", "type": "main", "index": 0 }]] },
+    "OpenAI Legal Firewall": { "main": [[{ "node": "Is Medical Advice?", "type": "main", "index": 0 }]] },
+    "Is Medical Advice?": { "main": [[{ "node": "WhatsApp Disclaimer Reply", "type": "main", "index": 0 }], [{ "node": "Embed Admin Query", "type": "main", "index": 0 }]] }
+  }
+}

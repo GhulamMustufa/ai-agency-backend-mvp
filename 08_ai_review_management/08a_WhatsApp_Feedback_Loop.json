@@ -1,0 +1,69 @@
+{
+  "name": "08a_WhatsApp_Feedback_Loop",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "pos-checkout-webhook" },
+      "name": "POS Checkout Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "amount": 2, "unit": "hours" },
+      "name": "Wait 2 Hours",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "resource": "message", "operation": "send", "message": "Hi {{ $json.name }}, thanks for visiting today! How was your experience? (Reply 'Great' or 'Poor')", "phoneNumber": "={{ $json.phone }}" },
+      "name": "WhatsApp Initial Request",
+      "type": "n8n-nodes-base.whatsapp",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "httpMethod": "POST", "path": "whatsapp-reply-webhook" },
+      "name": "Wait for WhatsApp Reply",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "User reply: {{ $json.body.message }}\nIs this sentiment Positive or Negative?" },
+      "name": "OpenAI Sentiment Analysis",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [1160, 300]
+    },
+    {
+      "parameters": { "conditions": { "string": [{ "value1": "={{ $json.sentiment }}", "value2": "Positive" }] } },
+      "name": "Is Positive?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1380, 300]
+    },
+    {
+      "parameters": { "resource": "message", "operation": "send", "message": "We're so glad! Please leave us a 5-star review here: [Google Maps Link]", "phoneNumber": "={{ $json.phone }}" },
+      "name": "Send Google Maps Link (WhatsApp)",
+      "type": "n8n-nodes-base.whatsapp",
+      "typeVersion": 1,
+      "position": [1600, 200]
+    },
+    {
+      "parameters": { "channel": "#manager-alerts", "text": "🚨 Negative Feedback Alert from {{ $json.name }}: {{ $json.body.message }}. Please call them!" },
+      "name": "Alert Manager on Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1600, 420]
+    }
+  ],
+  "connections": {
+    "POS Checkout Webhook": { "main": [[{ "node": "Wait 2 Hours", "type": "main", "index": 0 }]] },
+    "Wait 2 Hours": { "main": [[{ "node": "WhatsApp Initial Request", "type": "main", "index": 0 }]] },
+    "WhatsApp Initial Request": { "main": [[{ "node": "Wait for WhatsApp Reply", "type": "main", "index": 0 }]] },
+    "Wait for WhatsApp Reply": { "main": [[{ "node": "OpenAI Sentiment Analysis", "type": "main", "index": 0 }]] },
+    "OpenAI Sentiment Analysis": { "main": [[{ "node": "Is Positive?", "type": "main", "index": 0 }]] },
+    "Is Positive?": { "main": [[{ "node": "Send Google Maps Link (WhatsApp)", "type": "main", "index": 0 }], [{ "node": "Alert Manager on Slack", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "03c_Real_Estate_Tenant_Portal",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "tenant-complaint" },
+      "name": "WhatsApp Tenant Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "model": "gpt-4o-mini", "prompt": "Tenant Message: {{ $json.body.message }}.\nCategorize the issue: Maintenance, Billing, General Inquiry, or Emergency. Extract urgency (High/Low)." },
+      "name": "OpenAI Triage Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": { "conditions": { "string": [{ "value1": "={{ $json.urgency }}", "value2": "High" }] } },
+      "name": "Is Emergency?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": { "resource": "call", "operation": "make", "to": "+1234567890", "twiml": "<Response><Say>Emergency alert from Unit {{ $json.unit_number }}. Please check Slack.</Say></Response>" },
+      "name": "Twilio Call Property Manager",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [940, 200]
+    },
+    {
+      "parameters": { "operation": "create", "baseId": "YOUR_BASE", "tableId": "Maintenance", "fields": { "Unit": "={{ $json.unit_number }}", "Issue": "={{ $json.body.message }}", "Status": "Pending" } },
+      "name": "Log to Airtable (Low Urgency)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 1,
+      "position": [940, 420]
+    }
+  ],
+  "connections": {
+    "WhatsApp Tenant Webhook": { "main": [[{ "node": "OpenAI Triage Agent", "type": "main", "index": 0 }]] },
+    "OpenAI Triage Agent": { "main": [[{ "node": "Is Emergency?", "type": "main", "index": 0 }]] },
+    "Is Emergency?": { "main": [[{ "node": "Twilio Call Property Manager", "type": "main", "index": 0 }], [{ "node": "Log to Airtable (Low Urgency)", "type": "main", "index": 0 }]] }
+  }
+}

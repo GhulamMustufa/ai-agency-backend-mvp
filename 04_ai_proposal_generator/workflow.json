@@ -1,0 +1,58 @@
+{
+  "name": "04_AI_Proposal_and_Pitch_Generator",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "generate-proposal-webhook" },
+      "name": "Inbound Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": { "url": "={{ $json.body.website_url }}" },
+      "name": "Scrape Prospect Website",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "prompt": "=Write custom proposal for client {{ $json.body.company_name }} offering service {{ $json.body.service_requested }} using site research context: {{ $json.data }}"
+      },
+      "name": "OpenAI Proposal Writer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO proposals (client_name, lead_email, proposal_text, status) VALUES ('{{ $json.company_name }}', '{{ $json.email }}', '{{ $json.proposal_text }}', 'draft') RETURNING *;"
+      },
+      "name": "Save Proposal to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "resource": "mail",
+        "operation": "send",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Custom Proposal for {{ $json.company_name }}",
+        "text": "={{ $json.proposal_text }}"
+      },
+      "name": "Send Proposal Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1140, 300]
+    }
+  ],
+  "connections": {
+    "Inbound Lead Webhook": { "main": [[{ "node": "Scrape Prospect Website", "type": "main", "index": 0 }]] },
+    "Scrape Prospect Website": { "main": [[{ "node": "OpenAI Proposal Writer", "type": "main", "index": 0 }]] },
+    "OpenAI Proposal Writer": { "main": [[{ "node": "Save Proposal to Supabase", "type": "main", "index": 0 }]] },
+    "Save Proposal to Supabase": { "main": [[{ "node": "Send Proposal Email", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "06_AI_HR_and_Candidate_Screening_Assistant",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "submit-resume-webhook" },
+      "name": "Inbound Candidate Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": "=Parse candidate resume PDF and score match against job description:\nCandidate Resume: {{ $json.body.resume_text }}\nJob Requirements: {{ $json.body.job_requirements }}\n\nExtract candidate name, years experience, skills, and overall match score (0-100)."
+      },
+      "name": "OpenAI Resume Scorer",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO candidate_applications (candidate_name, email, match_score, experience_years, status) VALUES ('{{ $json.candidate_name }}', '{{ $json.email }}', {{ $json.match_score }}, {{ $json.experience_years }}, 'screened') RETURNING *;"
+      },
+      "name": "Save Candidate to Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "resource": "mail",
+        "operation": "send",
+        "toEmail": "={{ $json.email }}",
+        "subject": "=Interview Invitation - {{ $json.job_title }}",
+        "text": "=Hi {{ $json.candidate_name }}, congratulations! Your profile scored {{ $json.match_score }}/100. Please select an interview slot here: {{ $json.booking_link }}"
+      },
+      "name": "Send Interview Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [920, 300]
+    }
+  ],
+  "connections": {
+    "Inbound Candidate Webhook": { "main": [[{ "node": "OpenAI Resume Scorer", "type": "main", "index": 0 }]] },
+    "OpenAI Resume Scorer": { "main": [[{ "node": "Save Candidate to Supabase", "type": "main", "index": 0 }]] },
+    "Save Candidate to Supabase": { "main": [[{ "node": "Send Interview Email", "type": "main", "index": 0 }]] }
+  }
+}
