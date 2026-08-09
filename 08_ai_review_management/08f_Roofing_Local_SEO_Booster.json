@@ -1,0 +1,210 @@
+{
+  "name": "Roofing - Google Review SEO Booster",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm-job-complete",
+        "options": {}
+      },
+      "id": "node-crm-trigger",
+      "name": "Webhook (CRM Job Completed)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 24,
+        "unit": "hours"
+      },
+      "id": "node-wait",
+      "name": "Wait 24 Hours",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "YOUR_TWILIO_NUMBER",
+        "to": "={{ $json.body.customer_phone }}",
+        "message": "Hi {{ $json.body.customer_name }}, this is the owner of Apex Roofing. Our crew finished your roof yesterday. On a scale of 1-10, how happy are you with the cleanup and the final result?"
+      },
+      "id": "node-twilio-ask",
+      "name": "Twilio: Ask For Feedback",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "twilio-customer-reply",
+        "options": {}
+      },
+      "id": "node-customer-reply",
+      "name": "Webhook (Customer Replies)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "message": "Analyze this roofing customer's SMS reply. Is it positive (8-10 rating, or happy words) or negative (complaints about nails in yard, leaks, low rating)? Output JSON with a boolean 'is_happy'."
+            },
+            {
+              "message": "Customer SMS: {{ $json.body.Body }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "node-openai-sentiment",
+      "name": "OpenAI: Analyze Sentiment",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        300,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.message.content.is_happy }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-if-happy",
+      "name": "IF Customer Happy",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        520,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "YOUR_TWILIO_NUMBER",
+        "to": "={{ $('Webhook (Customer Replies)').item.json.body.From }}",
+        "message": "That is so great to hear! Our crew works really hard. Would you mind tapping this link to leave us a quick 5-star review on Google? It helps our small business immensely: g.page/r/YOUR_LINK/review"
+      },
+      "id": "node-twilio-google",
+      "name": "Twilio: Send Google Map Link",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        780,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "channelId": "damage-control",
+        "text": "🚨 URGENT: Unhappy customer! Call them immediately before they leave a bad review. Number: {{ $('Webhook (Customer Replies)').item.json.body.From }}\nComplaint: {{ $('Webhook (Customer Replies)').item.json.body.Body }}"
+      },
+      "id": "node-slack-escalate",
+      "name": "Slack: Owner Escalation",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [
+        780,
+        640
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (CRM Job Completed)": {
+      "main": [
+        [
+          {
+            "node": "Wait 24 Hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 24 Hours": {
+      "main": [
+        [
+          {
+            "node": "Twilio: Ask For Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (Customer Replies)": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Analyze Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Analyze Sentiment": {
+      "main": [
+        [
+          {
+            "node": "IF Customer Happy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Customer Happy": {
+      "main": [
+        [
+          {
+            "node": "Twilio: Send Google Map Link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack: Owner Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

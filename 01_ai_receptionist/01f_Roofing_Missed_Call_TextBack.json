@@ -1,0 +1,114 @@
+{
+  "name": "Roofing - Missed Call Text-Back",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "twilio-missed-call",
+        "options": {}
+      },
+      "id": "node-twilio-webhook",
+      "name": "Twilio Webhook (Missed Call)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "webhookId": "roofing-missed-call-trigger"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "message": "You are the AI Assistant for 'Apex Roofing'. A customer just called but the crew is on a roof. Write a friendly, 2-sentence SMS apologizing for missing the call. Ask them if they are dealing with an emergency leak, or if they just want a free estimate on a new roof. Ask them to reply with a photo of their house if possible."
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "text"
+        }
+      },
+      "id": "node-openai-sms",
+      "name": "OpenAI: Draft SMS",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "appointments",
+        "columns": "caller_number, status, intent",
+        "values": "={{ $json.body.From }}, 'missed_call_captured', 'pending_reply'"
+      },
+      "id": "node-postgres-log",
+      "name": "Log to Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "YOUR_TWILIO_NUMBER",
+        "to": "={{ $json.body.From }}",
+        "message": "={{ $('OpenAI: Draft SMS').item.json.message.content }}"
+      },
+      "id": "node-twilio-send",
+      "name": "Twilio: Send Text-Back",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        880,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Twilio Webhook (Missed Call)": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Draft SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Draft SMS": {
+      "main": [
+        [
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Database": {
+      "main": [
+        [
+          {
+            "node": "Twilio: Send Text-Back",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

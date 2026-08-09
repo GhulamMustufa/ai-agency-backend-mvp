@@ -1,0 +1,142 @@
+{
+  "name": "Roofing - Automated Estimate Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fb-lead-ad-roofing",
+        "options": {}
+      },
+      "id": "node-fb-lead",
+      "name": "Webhook (FB Lead Ad)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "message": "You are a lead qualifier for a Roofing company. Look at the lead's submission. Evaluate 1) Is the roof over 15 years old? and 2) Is this an insurance claim from storm damage? Output JSON with 'is_highly_qualified' as true if it's an insurance claim OR over 15 years old."
+            },
+            {
+              "message": "Lead Details: {{ $json.body.lead_details }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "node-openai-qualify",
+      "name": "OpenAI: Qualify Lead",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.message.content.is_highly_qualified }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-if-qualified",
+      "name": "IF Highly Qualified",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "sms",
+        "operation": "send",
+        "from": "YOUR_TWILIO_NUMBER",
+        "to": "={{ $('Webhook (FB Lead Ad)').item.json.body.phone }}",
+        "message": "Hey {{ $('Webhook (FB Lead Ad)').item.json.body.name }}! We saw your request for a roof estimate. We have a crew in your area tomorrow. Grab a time for a free drone inspection here: calendly.com/roofing/estimate"
+      },
+      "id": "node-twilio-vip",
+      "name": "Twilio: Send Calendly Link",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "channelId": "sales-alerts",
+        "text": "🚨 NEW LOW PRIORITY LEAD: {{ $('Webhook (FB Lead Ad)').item.json.body.name }}. Repair only, not an insurance claim."
+      },
+      "id": "node-slack-low",
+      "name": "Slack: Alert Sales Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [
+        880,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (FB Lead Ad)": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Qualify Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Qualify Lead": {
+      "main": [
+        [
+          {
+            "node": "IF Highly Qualified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Highly Qualified": {
+      "main": [
+        [
+          {
+            "node": "Twilio: Send Calendly Link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack: Alert Sales Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
