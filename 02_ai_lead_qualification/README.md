@@ -20,3 +20,4 @@ This module algorithmically scores and qualifies inbound leads in real-time, rou
 *   `02c_Event_Webinar_Qualifier.json`
 *   `02d_Franchise_Applicant_Screener.json`
 *   `02e_Insurance_Agent_Assistant.json`
+*   `02f_Roofing_Estimate_Scheduler.json`

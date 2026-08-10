@@ -20,3 +20,4 @@ This module actively guards a brand's online reputation. It intercepts customer 
 *   `08c_Employee_Satisfaction_Tracker.json`
 *   `08d_TripAdvisor_Hotel_Booster.json`
 *   `08e_Ecommerce_Unboxing_Reviewer.json`
+*   `08f_Roofing_Local_SEO_Booster.json`
