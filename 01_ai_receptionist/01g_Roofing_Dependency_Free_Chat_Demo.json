@@ -1,0 +1,80 @@
+{
+  "name": "Roofing - Dependency Free Chat Demo",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-chat-trigger",
+      "name": "Chat Trigger",
+      "type": "n8n-nodes-base.chatTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "webhookId": "roofing-chat-demo"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "message": "You are the AI Assistant for 'Apex Roofing'. A customer just reached out. Write a friendly, 2-sentence response. If this is their first message, apologize for missing their call (pretend the crew is on a roof). Ask them if they are dealing with an emergency leak, or if they just want a free estimate on a new roof. Ask them to reply with a photo of their house if possible."
+            },
+            {
+              "message": "={{ $json.action }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-openai-chat",
+      "name": "OpenAI: Generate Reply",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-chat-response",
+      "name": "Chat: Send Reply",
+      "type": "n8n-nodes-base.webhookResponse",
+      "typeVersion": 1,
+      "position": [
+        660,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Generate Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Generate Reply": {
+      "main": [
+        [
+          {
+            "node": "Chat: Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
