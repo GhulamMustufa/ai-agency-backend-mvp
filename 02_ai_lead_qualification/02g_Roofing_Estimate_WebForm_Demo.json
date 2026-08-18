@@ -1,0 +1,186 @@
+{
+  "name": "Roofing - Estimate WebForm Demo (No Twilio Needed)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Apex Roofing - Free Drone Estimate",
+        "formDescription": "Please fill out the details below to request a free roof inspection.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full Name",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Phone Number",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "How old is your current roof?",
+              "fieldType": "dropdown",
+              "dropdownOptions": {
+                "values": [
+                  {
+                    "option": "0-5 Years"
+                  },
+                  {
+                    "option": "5-15 Years"
+                  },
+                  {
+                    "option": "15+ Years"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Is this an insurance claim from storm damage?",
+              "fieldType": "dropdown",
+              "dropdownOptions": {
+                "values": [
+                  {
+                    "option": "Yes"
+                  },
+                  {
+                    "option": "No"
+                  }
+                ]
+              },
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-form-trigger",
+      "name": "n8n Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ],
+      "webhookId": "roofing-demo-form"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "message": "You are a lead qualifier for a Roofing company. Look at the lead's form submission. Evaluate 1) Is the roof over 15 years old? and 2) Is this an insurance claim? Output JSON with a boolean 'is_highly_qualified'. Set it to true if it is an insurance claim OR if the roof is 15+ years old."
+            },
+            {
+              "message": "Roof Age: {{ $('n8n Form Trigger').item.json['How old is your current roof?'] }}\nInsurance Claim: {{ $('n8n Form Trigger').item.json['Is this an insurance claim from storm damage?'] }}"
+            }
+          ]
+        },
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "node-openai-qualify",
+      "name": "OpenAI: Qualify Lead",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.message.content.is_highly_qualified }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-if-qualified",
+      "name": "IF Highly Qualified",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<h1>VIP Lead Captured!</h1><p>Because you selected Insurance Claim or 15+ Years, the AI instantly classified you as highly qualified. In a real scenario, this screen would redirect to Calendly, and an instant SMS would be sent to your phone!</p>",
+        "options": {}
+      },
+      "id": "node-respond-vip",
+      "name": "Show VIP Success Screen",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        880,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<h1>Low Priority Lead Logged</h1><p>The AI noticed your roof is new and not an insurance claim. It did not send an emergency SMS, and instead quietly logged your details to the sales CRM for later followup.</p>",
+        "options": {}
+      },
+      "id": "node-respond-low",
+      "name": "Show Low Priority Screen",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        880,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "n8n Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Qualify Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Qualify Lead": {
+      "main": [
+        [
+          {
+            "node": "IF Highly Qualified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Highly Qualified": {
+      "main": [
+        [
+          {
+            "node": "Show VIP Success Screen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Show Low Priority Screen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
