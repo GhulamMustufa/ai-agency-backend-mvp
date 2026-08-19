@@ -2,7 +2,10 @@
   "name": "Roofing - Dependency Free Chat Demo",
   "nodes": [
     {
-      "parameters": {},
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
       "id": "node-chat-trigger",
       "name": "Chat Trigger",
       "type": "n8n-nodes-base.chatTrigger",
@@ -15,22 +18,24 @@
     },
     {
       "parameters": {
-        "model": "gpt-4o-mini",
+        "model": "gpt-4o",
         "messages": {
           "messageValues": [
             {
               "role": "system",
-              "message": "You are the AI Assistant for 'Apex Roofing'. A customer just reached out. Write a friendly, 2-sentence response. If this is their first message, apologize for missing their call (pretend the crew is on a roof). Ask them if they are dealing with an emergency leak, or if they just want a free estimate on a new roof. Ask them to reply with a photo of their house if possible."
+              "message": "You are the AI Assistant for 'Apex Roofing'. The user is simulating a homeowner who just had their call missed by our crew. Write a friendly, 2-sentence reply apologizing for missing the call. Ask them if they are dealing with an emergency leak, or if they just want a free estimate on a new roof. Ask them to reply with a photo of their house if possible."
             },
             {
               "message": "={{ $json.action }}"
             }
           ]
         },
-        "options": {}
+        "options": {
+          "responseFormat": "text"
+        }
       },
       "id": "node-openai-chat",
-      "name": "OpenAI: Generate Reply",
+      "name": "OpenAI: Draft Reply",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 1,
       "position": [
@@ -40,15 +45,16 @@
     },
     {
       "parameters": {
-        "responseMode": "lastNode",
+        "respondWith": "text",
+        "responseBody": "={{ $json.message.content }}",
         "options": {}
       },
       "id": "node-chat-response",
-      "name": "Chat: Send Reply",
+      "name": "Chat Response",
       "type": "n8n-nodes-base.webhookResponse",
       "typeVersion": 1,
       "position": [
-        660,
+        680,
         300
       ]
     }
@@ -58,18 +64,18 @@
       "main": [
         [
           {
-            "node": "OpenAI: Generate Reply",
+            "node": "OpenAI: Draft Reply",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "OpenAI: Generate Reply": {
+    "OpenAI: Draft Reply": {
       "main": [
         [
           {
-            "node": "Chat: Send Reply",
+            "node": "Chat Response",
             "type": "main",
             "index": 0
           }
